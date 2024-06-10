@@ -22,17 +22,24 @@ app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
 
-// JWT middleware for authentication
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers["authorization"];
-  const token = authHeader && authHeader.split(" ")[1]; // Bearer TOKEN_VALUE
+  const token = authHeader && authHeader.split(" ")[1];
 
   if (token == null) return res.sendStatus(401); // if no token, return unauthorized
 
   jwt.verify(token, JWT_SECRET, (err, user) => {
     if (err) return res.sendStatus(403); // if token is not valid, return forbidden
-    req.user = user;
-    next();
+
+    // Verify user ID from token with the database
+    const query = `SELECT userid FROM accounts WHERE userid = ?`;
+    db.get(query, [user.userid], (err, row) => {
+      if (err) return res.sendStatus(500); // if database error, return server error
+      if (!row) return res.sendStatus(403); // if user not found, return forbidden
+
+      req.user = user;
+      next();
+    });
   });
 };
 
